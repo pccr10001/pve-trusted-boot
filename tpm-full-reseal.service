@@ -1,0 +1,14 @@
+[Unit]
+Description=Restore Full TPM Security (PCR 7,8,9) After Kernel Update
+# This service should only run if the trigger file exists.
+ConditionPathExists=/root/.tpm_reseal_needed
+# Run after the system is mostly up.
+After=local-fs.target
+
+[Service]
+Type=oneshot
+# Execute the final stage of the reseal process.
+ExecStart=/usr/local/sbin/tpm-full-reseal-post-boot.sh
+
+[Install]
+WantedBy=multi-user.target
