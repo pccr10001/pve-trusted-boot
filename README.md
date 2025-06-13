@@ -5,7 +5,7 @@ PVE Trusted Boot with TPM and LUKS
 * Install Proxmov VE
 * Enforce Secure boot
 * Keep kernel and initramfs update automatically
-* Seal with TPM
+* Seal with TPM to protect kernel, initramfs and kernel cmdline.
 
 ## My Environment
 * Intel N100
