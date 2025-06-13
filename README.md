@@ -361,6 +361,7 @@ Enter any remaining passphrase:
     * You need to input password during boot if you update kernel and initramfs.
 
 ## Enable auto-sealing during updating kernel and initramfs
+* Root access will BREAK this mechanism, don't setup up this if you want to share root access to others.
 * To make LUKS unlock automatically, we need to unbind and re-bind LUKS with PCR ID 7,8,9
 * Create a unlock key in `/root`
     * `dd if=/dev/urandom of=/root/.luks_unlock_key bs=1 count=32`
