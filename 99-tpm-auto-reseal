@@ -1,0 +1,59 @@
+#!/bin/bash
+#
+# TPM Auto-Reseal Hook for initramfs updates
+#
+# This script is triggered AFTER any initramfs image is successfully generated.
+# It temporarily downgrades the TPM policy to allow the next boot to succeed automatically,
+# then sets a trigger for the post-reboot systemd service to restore full security.
+#
+# This script is executed with two arguments:
+# $1: The kernel version (e.g., 6.8.4-3-pve)
+# $2: The absolute path to the generated initramfs image
+
+# --- Guard Clause: Ensure the script is called correctly ---
+if [ -z "$1" ] || [ -z "$2" ]; then
+    # Exit silently if not called with the expected arguments.
+    exit 0
+fi
+
+echo "TPM Hook: initramfs for kernel $1 has been updated at $2."
+echo "Starting TPM auto-reseal process."
+
+# --- Configuration ---
+LUKS_DEVICE="/dev/nvme0n1p4"
+KEY_FILE="/root/.luks_unlock_key"
+TRIGGER_FILE="/root/.tpm_reseal_needed"
+CLEVIS_SLOT=`clevis luks list -d /dev/nvme0n1p4 | grep '"pcr_ids":"7' | cut -d : -f 1`
+
+# --- Main Logic ---
+
+# Check if the key file exists and is readable by root.
+if [ ! -r "$KEY_FILE" ]; then
+    echo "ERROR: Automation key file ${KEY_FILE} not found or not readable. Aborting." >&2
+    # Exit with an error to signal a problem to any calling script.
+    exit 1
+fi
+
+# 1. Unbind the existing high-security TPM token.
+#    This is authorized non-interactively using the key file.
+echo "Unbinding existing TPM token from slot ${CLEVIS_SLOT}..."
+if ! clevis luks unbind -d "$LUKS_DEVICE" -s "$CLEVIS_SLOT" -f; then
+    # This might fail if no token exists, which is acceptable. We log it and continue.
+    echo "Warning: Could not unbind token from slot ${CLEVIS_SLOT}. It may not have existed. Continuing..."
+fi
+
+# 2. Bind a new, temporary token using only PCR 7 (Secure Boot status).
+#    This ensures the next boot with the new initramfs will not require a password.
+echo "Binding temporary token using PCR 7..."
+if ! clevis luks bind -k "$KEY_FILE" -d "$LUKS_DEVICE" tpm2 '{"pcr_bank":"sha256", "pcr_ids":"7"}'; then
+    echo "ERROR: Failed to bind temporary PCR 7 token. Manual intervention may be required." >&2
+    exit 1
+fi
+
+# 3. Create the trigger file to signal the systemd service to run on the next boot.
+echo "Creating trigger file for post-reboot finalization..."
+touch "$TRIGGER_FILE"
+
+echo "TPM Hook: Successfully prepared system for reboot. A reboot is required to finalize TPM configuration."
+
+exit 0
