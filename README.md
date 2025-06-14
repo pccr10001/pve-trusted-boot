@@ -340,7 +340,7 @@ iface enp1s0 inet static
     * `update-grub`
     * `reboot`
 * Add `local-lvm` storage
-    * `pvesm add lvmthin local-lvm data`
+    * ` pvesm add lvmthin local-lvm --thinpool data --vgname pve`
 * Enable Secure boot in BIOS
 * Now your system will boot with 
 
